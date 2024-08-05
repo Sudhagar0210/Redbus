@@ -1,4 +1,5 @@
-# Working Code
+
+# Pagination With SQL insert
 
 import time
 from selenium import webdriver
@@ -6,32 +7,31 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, ElementClickInterceptedException, StaleElementReferenceException, TimeoutException
+import pyodbc
+
+
+# Database connection
+conn = pyodbc.connect('DRIVER={SQL Server};SERVER=Sudhakar\\SQLEXPRESS01;DATABASE=Local_database;UID=sa;PWD=123')
 
 driver = webdriver.Chrome()
 driver.maximize_window()
 
 driver.get('https://www.redbus.in/')
 
-route_header_page = "https://www.redbus.in/online-booking/ktcl/?utm_source=rtchometile"
+time.sleep(3)
 
-time.sleep(5)
-driver.find_element(By.XPATH,"//*[@id=\"Carousel\"]/span/span/i").click()
-
-# select State Name
+# Select State Name
 time.sleep(2)
-driver.find_element(By.XPATH, "(//div[@class='rtcName'])[4]").click()
-driver.implicitly_wait(10)
+driver.find_element(By.XPATH, "(//div[@class='rtcName'])[1]").click()
+driver.implicitly_wait(3)
 
-time.sleep(5)
-route_titles = driver.find_elements(By.XPATH, "//a[@class='route']")
-
-time.sleep(10)
+time.sleep(2)
 
 def scroll_to_bottom():
     last_height = driver.execute_script("return document.body.scrollHeight")
     while True:
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(5)
+        time.sleep(4)
         new_height = driver.execute_script("return document.body.scrollHeight")
         if new_height == last_height:
             break
@@ -42,69 +42,120 @@ def get_bus_details():
     bus_details = driver.find_elements(By.XPATH, "//div[@class='clearfix bus-item-details']")
 
     for route in route_titles:
-        route_name = route.text
-        route_link = route.get_attribute('href')
-        
-
+        Route_name = route.text
+        Route_link = route.get_attribute('href')
+    
     for bus in bus_details:
         try:
-            bus_name = bus.find_element(By.XPATH, ".//div[contains(@class, 'travels')]").text
-            bus_type = bus.find_element(By.XPATH, ".//div[contains(@class, 'bus-type')]").text
-            departure_time = bus.find_element(By.XPATH, ".//div[contains(@class, 'dp-time')]").text
-            arrival_time = bus.find_element(By.XPATH, ".//div[contains(@class, 'bp-time')]").text
-            duration = bus.find_element(By.XPATH, ".//div[contains(@class, 'dur')]").text
-            rating = bus.find_element(By.XPATH, ".//div[contains(@class, 'ratings')]").text if bus.find_elements(By.XPATH, ".//div[contains(@class, 'ratings')]") else "N/A"
-            fare = bus.find_element(By.XPATH, ".//div[contains(@class, 'fare')]//span").text
-            seats_available = bus.find_element(By.XPATH, ".//div[contains(@class, 'seat-left')]").text
+            Bus_name = bus.find_element(By.XPATH, ".//div[contains(@class, 'travels')]").text
+            Bus_type = bus.find_element(By.XPATH, ".//div[contains(@class, 'bus-type')]").text
+            Departure_time = bus.find_element(By.XPATH, ".//div[contains(@class, 'dp-time')]").text
+            Arrival_time = bus.find_element(By.XPATH, ".//div[contains(@class, 'bp-time')]").text
+            Duration = bus.find_element(By.XPATH, ".//div[contains(@class, 'dur')]").text
+            try:
+                Rating = bus.find_element(By.XPATH, ".//div[contains(@class, 'rating')]").text 
+            except NoSuchElementException:
+                Rating = "N/A"
 
-            print(f"Route Name: {route_name}")
-            print(f"Route link: {route_link}")
-            print(f"Bus Name: {bus_name}")
-            print(f"Bus Type: {bus_type}")
-            print(f"Departure Time: {departure_time}")
-            print(f"Arrival Time: {arrival_time}")
-            print(f"Duration: {duration}")
-            print(f"Rating: {rating}")
-            print(f"Fare: {fare}")
-            print(f"Seats Available: {seats_available}")
-            print("-" * 40)
+            Fare = bus.find_element(By.XPATH, ".//div[contains(@class, 'fare')]//span").text
+            Seats_available = bus.find_element(By.XPATH, ".//div[contains(@class, 'seat-left')]").text
+
+            data_to_insert = (
+                Route_name,
+                Route_link,
+                Bus_name,
+                Bus_type,
+                Departure_time,
+                Arrival_time,
+                Duration,
+                Rating,                           
+                Fare,
+                Seats_available
+            )
+        
+            # Create SQL INSERT statement
+            sql_insert = """
+            INSERT INTO Redbus (Route_name, Route_link, Bus_name, Bus_type, Departure_time, Arrival_time, Duration, Rating, Fare, Seats_available)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+            
+            # Execute SQL INSERT statement
+            cursor = conn.cursor()
+            cursor.execute(sql_insert, data_to_insert)
+            conn.commit()
 
         except NoSuchElementException as e:
-            print(f"Error Fetching Some detaisl: {e}")
+            print(f"Error fetching some details: {e}")
 
-def handle_pagination():
-    while True:
-        get_bus_details()
-        try:
-            next_button = driver.find_element(By.XPATH, "//a[@class='paginate_button next']")
-            if 'disabled' in next_button.get_attribute('class'):
-                break
-            next_button.click()
-            time.sleep(5)
-        except NoSuchElementException:
-            print("No more pages available.")
+def go_to_page(page_number, isPage):
+    print (page_number, "Page_Number")
+    isPage = True
+    try:
+        page_button = WebDriverWait(driver, 10). until(
+            EC. element_to_be_clickable((By.XPATH, f"//div[text()='{page_number}']"))
+        )                                
+                                                                
+        driver.execute_script("arguments[0].scrollIntoView();", page_button)
+        time.sleep(2)
+        page_button.click()
+        WebDriverWait(driver, 10).until(EC.staleness_of(page_button))
+    except (NoSuchElementException,ElementClickInterceptedException,TimeoutException) as e:
+        print(f"Inserting page {page_number}: {e}")
+
+def fetch_route_titles():
+    return driver.find_elements(By.XPATH, "//a[@class='route']")
+
+def pageData(isPage):
+    page = 1
+    while isPage:
+        route_titles = fetch_route_titles()
+        if not route_titles:
             break
 
-route_titles = driver.find_elements(By.XPATH, "//a[@class='route']")
-for i in range(len(route_titles)):
-    if i < len(route_titles):
-        driver.execute_script("arguments[0].scrollIntoView();", route_titles[i])
-        driver.execute_script("window.scrollBy(0, -100);")
-        time.sleep(2)
+        for i in range(len(route_titles)):
+            try:
+                # route_name = route_titles[i].text
+                # route_link = route_titles[i].get_attribute('href')                
+                # print(f"Clicking on route {i + 1} on page {page}")
+                driver.execute_script("arguments[0].scrollIntoView();", route_titles[i])
+                driver.execute_script("window.scrollBy(0,-100);")
+                time.sleep(2)
+                try:
+                    driver.execute_script("arguments[0].click();", route_titles[i])
+                except (ElementClickInterceptedException, NoSuchElementException, StaleElementReferenceException, TimeoutException):
+                    time.sleep(2)
+                    driver.execute_script("arguments[0].click();", route_titles[i])
+                time.sleep(2)
+                scroll_to_bottom()
+                #get_bus_details(route_name, route_link)
+                get_bus_details()
+                time.sleep(2)
+                driver.back()
+                time.sleep(2)
+                driver.back()
 
-        try:
-            driver.execute_script("arguments[0].click();", route_titles[i])
-        except (ElementClickInterceptedException, NoSuchElementException, StaleElementReferenceException, TimeoutException):
-            time.sleep(2)
-            driver.execute_script("arguments[0].click();", route_titles[i])
+                # Refresh the route titles after navigating back
+                route_titles = fetch_route_titles()
+            except StaleElementReferenceException:
+                print(f"StaleElementReferenceException encountered for item {i}, refreshing list.")
+                route_titles = fetch_route_titles()
+                continue
 
-        time.sleep(5)
-        scroll_to_bottom()
-        handle_pagination()
-        driver.get(route_header_page)
-        time.sleep(5)
-        route_titles = driver.find_elements(By.XPATH, "//a[@class='route']")
-    else:
-        print("No more route titles available.")
+        page += 1
+        if page == 5:  # Need to change based on available Pages         
+            isPage = False 
+            break
+        go_to_page(page, isPage)
 
+
+# Call the main function with initial
+isPage = True
+pageData(isPage)
+
+
+# Close the database connection
+conn.close()
+
+# Close Driver
 driver.quit()
+
