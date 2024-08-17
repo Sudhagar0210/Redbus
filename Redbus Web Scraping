@@ -1,4 +1,3 @@
-
 # Pagination With SQL insert
 
 import time
@@ -20,9 +19,23 @@ driver.get('https://www.redbus.in/')
 
 time.sleep(3)
 
-# Select State Name
+
+# # Click the State Header
+element = driver.find_element(By.XPATH, "//*[@id=\"Carousel\"]/span/span/i")
+element.click()
 time.sleep(2)
-driver.find_element(By.XPATH, "(//div[@class='rtcName'])[1]").click()
+element.click()
+time.sleep(2)
+element.click()
+
+# State Name 
+state_name_details = driver.find_element(By.XPATH, "(//div[@class='rtcName'])[10]")  # Need to change index Number based on State Name Click
+State_name = state_name_details.text  
+
+# Select State Name
+time.sleep(3)
+#driver.find_element(By.XPATH,"(//img[@class='rtcLogo'])[3]").click()
+driver.find_element(By.XPATH, "(//div[@class='rtcName'])[10]").click()
 driver.implicitly_wait(3)
 
 time.sleep(2)
@@ -37,7 +50,7 @@ def scroll_to_bottom():
             break
         last_height = new_height
 
-def get_bus_details():
+def get_bus_details(State_name):
     route_titles = driver.find_elements(By.XPATH, "//*[@id=\"mBWrapper\"]/section/div[1]/ul/li/a")
     bus_details = driver.find_elements(By.XPATH, "//div[@class='clearfix bus-item-details']")
 
@@ -61,6 +74,7 @@ def get_bus_details():
             Seats_available = bus.find_element(By.XPATH, ".//div[contains(@class, 'seat-left')]").text
 
             data_to_insert = (
+                State_name,
                 Route_name,
                 Route_link,
                 Bus_name,
@@ -75,8 +89,8 @@ def get_bus_details():
         
             # Create SQL INSERT statement
             sql_insert = """
-            INSERT INTO Redbus (Route_name, Route_link, Bus_name, Bus_type, Departure_time, Arrival_time, Duration, Rating, Fare, Seats_available)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO Redbus (State_name,Route_name, Route_link, Bus_name, Bus_type, Departure_time, Arrival_time, Duration, Rating, Fare, Seats_available)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             
             # Execute SQL INSERT statement
@@ -117,6 +131,7 @@ def pageData(isPage):
                 # route_name = route_titles[i].text
                 # route_link = route_titles[i].get_attribute('href')                
                 # print(f"Clicking on route {i + 1} on page {page}")
+                time.sleep(2)
                 driver.execute_script("arguments[0].scrollIntoView();", route_titles[i])
                 driver.execute_script("window.scrollBy(0,-100);")
                 time.sleep(2)
@@ -128,7 +143,7 @@ def pageData(isPage):
                 time.sleep(2)
                 scroll_to_bottom()
                 #get_bus_details(route_name, route_link)
-                get_bus_details()
+                get_bus_details(state_name)
                 time.sleep(2)
                 driver.back()
                 time.sleep(2)
@@ -142,7 +157,7 @@ def pageData(isPage):
                 continue
 
         page += 1
-        if page == 5:  # Need to change based on available Pages         
+        if page == 6:  # Need to change based on available Pages         
             isPage = False 
             break
         go_to_page(page, isPage)
