@@ -18,11 +18,21 @@ def execute_query(query, params=None):
     with engine.connect() as conn:
         result = conn.execute(text(query), params or {})
         return result.fetchall()
+    
 
-def show_bus_details():
-    query_route_name = "SELECT DISTINCT [Route_name] FROM Redbus ORDER BY [Route_name] ASC"
-    df_route_name = pd.read_sql_query(query_route_name, engine)
-    return df_route_name
+
+def show_bus_details(state_name=None):
+    query_state_name = "SELECT DISTINCT [State_name] FROM Redbus ORDER BY [State_name] ASC"
+    df_state_name = pd.read_sql_query(query_state_name, engine)
+
+    if state_name:
+        query_route_name = f"SELECT DISTINCT [Route_name] FROM Redbus WHERE State_name = '{state_name}' ORDER BY [Route_name] ASC"
+        df_route_name = pd.read_sql_query(query_route_name, engine)
+    else:
+        df_route_name = pd.DataFrame({'Route_name': []}) 
+    return df_route_name, df_state_name
+
+
 
 def load_lottiefile(filepath: str):
     with open(filepath, "r") as f:
@@ -34,8 +44,8 @@ st.title('Redbus Booking Details')
 st.sidebar.header('Main Menu')
 page = st.sidebar.selectbox('Select a page', ['Home', 'Select Bus Details'])
 
-# Load Lottie animation
-lottie_animation = load_lottiefile("C:\\Users\\sudha\\Downloads\\Animation.json")  # Update the path to your JSON file
+#Lottie animation
+lottie_animation = load_lottiefile("C:\\Users\\sudha\\Downloads\\Animation.json")  
 
 if page == 'Home':
     st.write('Welcome to Redbus Trip Booking')
@@ -43,12 +53,11 @@ if page == 'Home':
 
 elif page == 'Select Bus Details':
     st.write('Please select your bus details:')
-    df_route_name = show_bus_details()
 
-    # Dropdown
+    df_route_name, df_state_name = show_bus_details()    
+   
     col1, col2, col3 = st.columns(3)
     col4, col5, col6 = st.columns(3)
-
 
     # Dropdown options with "Select" as default
     start_time_option = {
@@ -85,28 +94,32 @@ elif page == 'Select Bus Details':
     display_Rating = list(Rating_option.keys())
     display_Seat = list(Seat_option.keys())
 
-    with col1:
-        route_name = st.selectbox('Select The Route', ['Select'] + df_route_name['Route_name'].tolist())
+    with col1:        
+        state_name = st.selectbox('Select  State Name', ['Select'] + df_state_name['State_name'].tolist())        
+       
+        df_route_name, df_state_name = show_bus_details(state_name if state_name != 'Select' else None)
 
     with col2:
-        bus_type = st.selectbox('Select the Seat Type', display_Seat, key='bus_type')
+        route_name = st.selectbox('Select  Route Name', ['Select'] + df_route_name['Route_name'].tolist())
 
     with col3:
-        Rating = st.selectbox('Select The Rating', display_Rating, key='Rating')
+        bus_type = st.selectbox('Select Seat Type', display_Seat, key='bus_type')
 
     with col4:
-        start_time = st.selectbox('Select Starting Time', display_start_time, key='start_time')
+        Rating = st.selectbox('Select The Rating', display_Rating, key='Rating')
 
     with col5:
-        fare_from = st.selectbox('Bus Fare From', display_fare_from, key='fare_from')
+        start_time = st.selectbox('Select Starting Time', display_start_time, key='start_time')
 
     with col6:
-        search_button = st.button('Search Bus')
+        fare_from = st.selectbox('Bus Fare From', display_fare_from, key='fare_from')
+
+    search_button = st.button('Search Bus')
 
     st.markdown("""
         <style>
         .stButton button {
-            width: 50%;
+            width: 20%;
             height: 35px;
             margin-top: 25px;
         }
@@ -115,6 +128,8 @@ elif page == 'Select Bus Details':
 
     if search_button:
         conditions = []
+        if state_name != 'Select':
+            conditions.append(f"State_name = '{state_name}'")
         if route_name != 'Select':
             conditions.append(f"Route_name = '{route_name}'")
         if bus_type != 'Select':
@@ -134,7 +149,7 @@ elif page == 'Select Bus Details':
             query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY 1 ASC"
 
-        st.write(f"Executing Query: {query}")  # Debugging: display the query
+        #st.write(f"Executing Query: {query}")  # Debugging: display the query
 
         bus_details_fetching = execute_query(query)
 
@@ -143,4 +158,5 @@ elif page == 'Select Bus Details':
             df_bus_details_fetching1 = df_bus_details_fetching.set_index(pd.Index(range(1, len(df_bus_details_fetching) + 1)))
             st.dataframe(df_bus_details_fetching1)
         else:
-            st.write('No bus details found for the selected criteria.')
+            st.write('No bus details found for the selected Option.')
+
